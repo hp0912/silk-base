@@ -35,7 +35,7 @@ COPY --from=builder /src/silk/decoder          /usr/local/bin/silk/decoder
 COPY --from=builder /src/converter.sh          /usr/local/bin/silk-convert
 
 # 赋可执行权限
-RUN chmod +x /usr/local/bin/silk-decoder /usr/local/bin/silk-convert
+RUN chmod +x /usr/local/bin/silk/decoder /usr/local/bin/silk-convert
 
 # 可选：将 converter.sh 作为默认入口，也方便在其它镜像里直接调用
 ENTRYPOINT ["/usr/local/bin/silk-convert"]
