@@ -27,7 +27,7 @@ FROM debian:stable-slim AS silk-base
 # 只保留运行所需的 ffmpeg（及其依赖）
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive \
-  apt-get install -y --no-install-recommends ffmpeg \
+  apt-get install -y --no-install-recommends ffmpeg ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # 搬运编译好的二进制和脚本
