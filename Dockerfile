@@ -24,11 +24,20 @@ RUN make && make decoder && make encoder
 # ────────────────────────
 FROM debian:stable-slim AS silk-base
 
-# 只保留运行所需的 ffmpeg（及其依赖）
+ARG NODE_MAJOR=22
+
 RUN apt-get update && \
-  DEBIAN_FRONTEND=noninteractive \
-  apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  ca-certificates curl ffmpeg \
+  python3 python3-venv python3-pip \
+  && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
+  && corepack enable \
   && rm -rf /var/lib/apt/lists/*
+
+# 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
+ENV PYTHONUNBUFFERED=1 \
+  PIP_NO_CACHE_DIR=1
 
 # 搬运编译好的二进制和脚本
 COPY --from=builder /src/silk/decoder          /usr/local/bin/silk-decoder
