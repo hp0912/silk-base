@@ -29,6 +29,8 @@ ARG NODE_MAJOR=22
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   ca-certificates curl ffmpeg \
+  chromium \
+  fontconfig fonts-noto-cjk fonts-noto-color-emoji \
   python3 python3-venv python3-pip \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
@@ -39,6 +41,7 @@ RUN apt-get update && \
 # 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
 ENV PYTHONUNBUFFERED=1 \
   PIP_NO_CACHE_DIR=1 \
+  CHROME_BIN=/usr/bin/chromium \
   PATH="/root/.cargo/bin:$PATH"
 
 # 搬运编译好的二进制和脚本
