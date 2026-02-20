@@ -42,7 +42,8 @@ RUN apt-get update && \
 ENV PYTHONUNBUFFERED=1 \
   PIP_NO_CACHE_DIR=1 \
   CHROME_BIN=/usr/bin/chromium \
-  PATH="/root/.cargo/bin:$PATH"
+  CHROME_PATH=/usr/bin/chromium \
+  PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
 
 # 搬运编译好的二进制和脚本
 COPY --from=builder /src/silk/decoder          /usr/local/bin/silk-decoder
