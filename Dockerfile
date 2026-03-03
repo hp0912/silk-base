@@ -46,12 +46,12 @@ ENV PYTHONUNBUFFERED=1 \
   PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
 
 # 搬运编译好的二进制和脚本
-COPY --from=builder /src/silk/decoder          /usr/local/bin/silk-decoder
-COPY --from=builder /src/silk/encoder          /usr/local/bin/silk-encoder
-COPY --from=builder /src/converter.sh          /usr/local/bin/silk-convert
+COPY --from=builder /src/silk/decoder          /usr/local/bin/silk/decoder
+COPY --from=builder /src/silk/encoder          /usr/local/bin/silk/encoder
+COPY --from=builder /src/converter.sh          /usr/local/bin/silk/converter
 
 # 赋可执行权限
-RUN chmod +x /usr/local/bin/silk-decoder /usr/local/bin/silk-encoder /usr/local/bin/silk-convert
+RUN chmod +x /usr/local/bin/silk/decoder /usr/local/bin/silk/encoder /usr/local/bin/silk/converter
 
 # 可选：将 converter.sh 作为默认入口，也方便在其它镜像里直接调用
-ENTRYPOINT ["/usr/local/bin/silk-convert"]
+ENTRYPOINT ["/usr/local/bin/silk/converter"]
