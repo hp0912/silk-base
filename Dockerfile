@@ -28,7 +28,7 @@ ARG NODE_MAJOR=22
 
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  ca-certificates curl ffmpeg \
+  ca-certificates curl ffmpeg git \
   chromium \
   fontconfig fonts-noto-cjk fonts-noto-color-emoji \
   python3 python3-venv python3-pip \
