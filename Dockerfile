@@ -24,7 +24,7 @@ RUN make && make decoder && make encoder
 # ────────────────────────
 FROM debian:stable-slim AS silk-base
 
-ARG NODE_MAJOR=25
+ARG NODE_MAJOR=24
 
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
