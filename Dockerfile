@@ -35,6 +35,7 @@ RUN apt-get update && \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
   && corepack enable \
+  && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
   && rm -rf /var/lib/apt/lists/*
 
@@ -43,7 +44,8 @@ ENV PYTHONUNBUFFERED=1 \
   PIP_NO_CACHE_DIR=1 \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
-  PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
+  BUN_INSTALL="/root/.bun" \
+  PATH="/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
 
 # 搬运编译好的二进制和脚本
 COPY --from=builder /src/silk/decoder          /usr/local/bin/silk/decoder
