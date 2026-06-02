@@ -25,6 +25,7 @@ RUN make && make decoder && make encoder
 FROM debian:stable-slim AS silk-base
 
 ARG NODE_MAJOR=24
+ARG TSX_VERSION=latest
 
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -34,6 +35,7 @@ RUN apt-get update && \
   python3 python3-venv python3-pip \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
+  && npm install -g tsx@${TSX_VERSION} \
   && corepack enable \
   && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
