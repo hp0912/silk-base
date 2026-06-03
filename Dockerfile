@@ -31,7 +31,7 @@ RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   ca-certificates curl ffmpeg git unzip \
   chromium \
-  fontconfig fonts-noto-cjk fonts-noto-color-emoji \
+  fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter \
   python3 python3-venv python3-pip \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
