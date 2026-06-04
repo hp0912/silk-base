@@ -1,15 +1,21 @@
+# syntax=docker/dockerfile:1.7
+
 # ────────────────────────
 #  1️⃣ 编译阶段
 # ────────────────────────
 FROM debian:stable AS builder
 
+ARG TARGETPLATFORM
+
 # 依赖：gcc / make 以及 ffmpeg（便于在编译镜像里自测）
-RUN apt-get update && \
+RUN --mount=type=cache,id=silk-base-builder-apt-cache-${TARGETPLATFORM},target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,id=silk-base-builder-apt-lib-${TARGETPLATFORM},target=/var/lib/apt,sharing=locked \
+  rm -f /etc/apt/apt.conf.d/docker-clean && \
+  apt-get update && \
   DEBIAN_FRONTEND=noninteractive \
   apt-get install -y --no-install-recommends \
   build-essential \
-  ffmpeg \
-  && rm -rf /var/lib/apt/lists/*
+  ffmpeg
 
 # 拷贝源码（当前项目即为 silk-v3-decoder）
 WORKDIR /src
@@ -24,10 +30,15 @@ RUN make && make decoder && make encoder
 # ────────────────────────
 FROM debian:stable-slim AS silk-base
 
+ARG TARGETPLATFORM
 ARG NODE_MAJOR=24
 ARG TSX_VERSION=latest
 
-RUN apt-get update && \
+RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,id=silk-base-runtime-apt-lib-${TARGETPLATFORM},target=/var/lib/apt,sharing=locked \
+  --mount=type=cache,id=silk-base-npm-${TARGETPLATFORM},target=/root/.npm \
+  rm -f /etc/apt/apt.conf.d/docker-clean && \
+  apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   ca-certificates curl ffmpeg git unzip \
   tzdata \
@@ -41,8 +52,7 @@ RUN apt-get update && \
   && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
   && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-  && echo Asia/Shanghai > /etc/timezone \
-  && rm -rf /var/lib/apt/lists/*
+  && echo Asia/Shanghai > /etc/timezone
 
 # 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
 ENV PYTHONUNBUFFERED=1 \
