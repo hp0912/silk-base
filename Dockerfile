@@ -30,6 +30,7 @@ ARG TSX_VERSION=latest
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   ca-certificates curl ffmpeg git unzip \
+  tzdata \
   chromium \
   fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter \
   python3 python3-venv python3-pip \
@@ -39,11 +40,14 @@ RUN apt-get update && \
   && corepack enable \
   && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
+  && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+  && echo Asia/Shanghai > /etc/timezone \
   && rm -rf /var/lib/apt/lists/*
 
 # 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
 ENV PYTHONUNBUFFERED=1 \
   PIP_NO_CACHE_DIR=1 \
+  TZ=Asia/Shanghai \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
   BUN_INSTALL="/root/.bun" \
