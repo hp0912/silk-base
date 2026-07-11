@@ -40,7 +40,7 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   rm -f /etc/apt/apt.conf.d/docker-clean && \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  ca-certificates curl ffmpeg git unzip \
+  ca-certificates curl ffmpeg git ripgrep unzip \
   tzdata \
   chromium \
   fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter \
