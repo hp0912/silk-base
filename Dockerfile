@@ -40,9 +40,11 @@ ARG RAPIDOCR_VERSION=3.9.1
 ARG ONNXRUNTIME_VERSION=1.27.0
 ARG OPENCV_PYTHON_VERSION=4.12.0.88
 ARG OPENPYXL_VERSION=3.1.5
+ARG PILLOW_VERSION=12.3.0
 ARG PANDAS_VERSION=3.0.5
 ARG MARKITDOWN_VERSION=0.1.6
 ARG DOCX_VERSION=9.7.1
+ARG PYTHON_DOCX_VERSION=1.2.0
 ARG LXML_VERSION=6.1.1
 ARG DEFUSEDXML_VERSION=0.7.1
 
@@ -100,18 +102,20 @@ RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
   uv pip install --python "${VIRTUAL_ENV}/bin/python" \
   "openpyxl==${OPENPYXL_VERSION}" \
+  "Pillow==${PILLOW_VERSION}" \
   "pandas==${PANDAS_VERSION}" \
   "markitdown[xlsx]==${MARKITDOWN_VERSION}" \
-  && "${VIRTUAL_ENV}/bin/python" -c "import openpyxl, pandas; from markitdown import MarkItDown" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import openpyxl, pandas; from PIL import Image; from markitdown import MarkItDown" \
   && command -v markitdown >/dev/null \
   && command -v soffice >/dev/null
 
 # Anthropic docx skill 的读取、创建、XML 校验和渲染依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
   uv pip install --python "${VIRTUAL_ENV}/bin/python" \
+  "python-docx==${PYTHON_DOCX_VERSION}" \
   "lxml==${LXML_VERSION}" \
   "defusedxml==${DEFUSEDXML_VERSION}" \
-  && "${VIRTUAL_ENV}/bin/python" -c "import defusedxml, lxml.etree" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import defusedxml, docx, lxml.etree; from docx import Document; Document()" \
   && node -e "require('docx')" \
   && command -v pandoc >/dev/null \
   && command -v zip >/dev/null \
