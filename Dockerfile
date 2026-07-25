@@ -70,39 +70,41 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
 # 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
 ENV PYTHONUNBUFFERED=1 \
   PIP_NO_CACHE_DIR=1 \
+  VIRTUAL_ENV="/opt/venv" \
   TZ=Asia/Shanghai \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
   BUN_INSTALL="/root/.bun" \
   NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules" \
-  PATH="/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
+  PATH="/opt/venv/bin:/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
 
 # PDF 解析、生成、表单处理和页面渲染依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
-  uv pip install --system \
+  uv venv "${VIRTUAL_ENV}" --python python3 \
+  && uv pip install --python "${VIRTUAL_ENV}/bin/python" \
   "pdfplumber==${PDFPLUMBER_VERSION}" \
   "pypdf==${PYPDF_VERSION}" \
   "reportlab==${REPORTLAB_VERSION}" \
-  && python3 -c "import pdfplumber, pypdf, reportlab" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import pdfplumber, pypdf, reportlab" \
   && command -v pdftoppm >/dev/null \
   && command -v pdfinfo >/dev/null
 
 # Anthropic xlsx skill 的 Python 运行时和公式重算依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
-  uv pip install --system \
+  uv pip install --python "${VIRTUAL_ENV}/bin/python" \
   "openpyxl==${OPENPYXL_VERSION}" \
   "pandas==${PANDAS_VERSION}" \
   "markitdown[xlsx]==${MARKITDOWN_VERSION}" \
-  && python3 -c "import openpyxl, pandas; from markitdown import MarkItDown" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import openpyxl, pandas; from markitdown import MarkItDown" \
   && command -v markitdown >/dev/null \
   && command -v soffice >/dev/null
 
 # Anthropic docx skill 的读取、创建、XML 校验和渲染依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
-  uv pip install --system \
+  uv pip install --python "${VIRTUAL_ENV}/bin/python" \
   "lxml==${LXML_VERSION}" \
   "defusedxml==${DEFUSEDXML_VERSION}" \
-  && python3 -c "import defusedxml, lxml.etree" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import defusedxml, lxml.etree" \
   && node -e "require('docx')" \
   && command -v pandoc >/dev/null \
   && command -v zip >/dev/null \
