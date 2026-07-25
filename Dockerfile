@@ -33,6 +33,15 @@ FROM debian:stable-slim AS silk-base
 ARG TARGETPLATFORM
 ARG NODE_MAJOR=24
 ARG TSX_VERSION=latest
+ARG PDFPLUMBER_VERSION=0.11.9
+ARG PYPDF_VERSION=6.10.0
+ARG REPORTLAB_VERSION=4.4.9
+ARG OPENPYXL_VERSION=3.1.5
+ARG PANDAS_VERSION=3.0.5
+ARG MARKITDOWN_VERSION=0.1.6
+ARG DOCX_VERSION=9.7.1
+ARG LXML_VERSION=6.1.1
+ARG DEFUSEDXML_VERSION=0.7.1
 
 RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/var/cache/apt,sharing=locked \
   --mount=type=cache,id=silk-base-runtime-apt-lib-${TARGETPLATFORM},target=/var/lib/apt,sharing=locked \
@@ -40,14 +49,18 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   rm -f /etc/apt/apt.conf.d/docker-clean && \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  ca-certificates curl ffmpeg git ripgrep unzip \
+  ca-certificates curl ffmpeg git ripgrep unzip zip \
   tzdata \
   chromium \
-  fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter \
+  fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter fonts-liberation \
+  fonts-crosextra-caladea fonts-crosextra-carlito \
   python3 python3-venv python3-pip \
+  pandoc \
+  poppler-utils \
+  libreoffice-calc-nogui libreoffice-writer-nogui \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
-  && npm install -g tsx@${TSX_VERSION} \
+  && npm install -g tsx@${TSX_VERSION} docx@${DOCX_VERSION} \
   && corepack enable \
   && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
@@ -61,7 +74,40 @@ ENV PYTHONUNBUFFERED=1 \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
   BUN_INSTALL="/root/.bun" \
+  NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules" \
   PATH="/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
+
+# PDF 解析、生成、表单处理和页面渲染依赖
+RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
+  uv pip install --system \
+  "pdfplumber==${PDFPLUMBER_VERSION}" \
+  "pypdf==${PYPDF_VERSION}" \
+  "reportlab==${REPORTLAB_VERSION}" \
+  && python3 -c "import pdfplumber, pypdf, reportlab" \
+  && command -v pdftoppm >/dev/null \
+  && command -v pdfinfo >/dev/null
+
+# Anthropic xlsx skill 的 Python 运行时和公式重算依赖
+RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
+  uv pip install --system \
+  "openpyxl==${OPENPYXL_VERSION}" \
+  "pandas==${PANDAS_VERSION}" \
+  "markitdown[xlsx]==${MARKITDOWN_VERSION}" \
+  && python3 -c "import openpyxl, pandas; from markitdown import MarkItDown" \
+  && command -v markitdown >/dev/null \
+  && command -v soffice >/dev/null
+
+# Anthropic docx skill 的读取、创建、XML 校验和渲染依赖
+RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
+  uv pip install --system \
+  "lxml==${LXML_VERSION}" \
+  "defusedxml==${DEFUSEDXML_VERSION}" \
+  && python3 -c "import defusedxml, lxml.etree" \
+  && node -e "require('docx')" \
+  && command -v pandoc >/dev/null \
+  && command -v zip >/dev/null \
+  && command -v soffice >/dev/null \
+  && command -v pdftoppm >/dev/null
 
 # 搬运编译好的二进制和脚本
 COPY --from=builder /src/silk/decoder          /usr/local/bin/silk/decoder
