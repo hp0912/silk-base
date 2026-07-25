@@ -36,6 +36,9 @@ ARG TSX_VERSION=latest
 ARG PDFPLUMBER_VERSION=0.11.9
 ARG PYPDF_VERSION=6.10.0
 ARG REPORTLAB_VERSION=4.4.9
+ARG RAPIDOCR_VERSION=3.9.1
+ARG ONNXRUNTIME_VERSION=1.27.0
+ARG OPENCV_PYTHON_VERSION=4.12.0.88
 ARG OPENPYXL_VERSION=3.1.5
 ARG PANDAS_VERSION=3.0.5
 ARG MARKITDOWN_VERSION=0.1.6
@@ -55,6 +58,7 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter fonts-liberation \
   fonts-crosextra-caladea fonts-crosextra-carlito \
   python3 python3-venv python3-pip \
+  libgomp1 libgl1 libglib2.0-0t64 \
   pandoc \
   poppler-utils \
   libreoffice-calc-nogui libreoffice-writer-nogui \
@@ -78,14 +82,17 @@ ENV PYTHONUNBUFFERED=1 \
   NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules" \
   PATH="/opt/venv/bin:/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
 
-# PDF 解析、生成、表单处理和页面渲染依赖
+# PDF 解析、生成、表单处理、页面渲染和本地 OCR 依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
   uv venv "${VIRTUAL_ENV}" --python python3 \
   && uv pip install --python "${VIRTUAL_ENV}/bin/python" \
   "pdfplumber==${PDFPLUMBER_VERSION}" \
   "pypdf==${PYPDF_VERSION}" \
   "reportlab==${REPORTLAB_VERSION}" \
-  && "${VIRTUAL_ENV}/bin/python" -c "import pdfplumber, pypdf, reportlab" \
+  "rapidocr==${RAPIDOCR_VERSION}" \
+  "onnxruntime==${ONNXRUNTIME_VERSION}" \
+  "opencv-python==${OPENCV_PYTHON_VERSION}" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import cv2, onnxruntime, pdfplumber, pypdf, reportlab; from rapidocr import RapidOCR; RapidOCR(); print('PDF and OCR dependencies OK')" \
   && command -v pdftoppm >/dev/null \
   && command -v pdfinfo >/dev/null
 
