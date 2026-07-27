@@ -47,6 +47,12 @@ ARG DOCX_VERSION=9.7.1
 ARG PYTHON_DOCX_VERSION=1.2.0
 ARG LXML_VERSION=6.1.1
 ARG DEFUSEDXML_VERSION=0.7.1
+ARG PPTXGENJS_VERSION=4.0.1
+ARG REACT_VERSION=19.2.8
+ARG REACT_DOM_VERSION=19.2.8
+ARG REACT_ICONS_VERSION=5.7.0
+ARG SHARP_VERSION=0.35.3
+ARG PYTHON_PPTX_VERSION=1.0.2
 
 RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/var/cache/apt,sharing=locked \
   --mount=type=cache,id=silk-base-runtime-apt-lib-${TARGETPLATFORM},target=/var/lib/apt,sharing=locked \
@@ -63,10 +69,17 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   libgomp1 libgl1 libglib2.0-0t64 \
   pandoc \
   poppler-utils \
-  libreoffice-calc-nogui libreoffice-writer-nogui \
+  libreoffice-calc-nogui libreoffice-writer-nogui libreoffice-impress-nogui \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
-  && npm install -g tsx@${TSX_VERSION} docx@${DOCX_VERSION} \
+  && npm install -g \
+  tsx@${TSX_VERSION} \
+  docx@${DOCX_VERSION} \
+  pptxgenjs@${PPTXGENJS_VERSION} \
+  react@${REACT_VERSION} \
+  react-dom@${REACT_DOM_VERSION} \
+  react-icons@${REACT_ICONS_VERSION} \
+  sharp@${SHARP_VERSION} \
   && corepack enable \
   && curl -fsSL https://bun.sh/install | bash \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
@@ -119,6 +132,16 @@ RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,
   && node -e "require('docx')" \
   && command -v pandoc >/dev/null \
   && command -v zip >/dev/null \
+  && command -v soffice >/dev/null \
+  && command -v pdftoppm >/dev/null
+
+# PPTX skill 的创建、读取、图标渲染、结构校验和逐页预览依赖
+RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
+  uv pip install --python "${VIRTUAL_ENV}/bin/python" \
+  "markitdown[pptx]==${MARKITDOWN_VERSION}" \
+  "python-pptx==${PYTHON_PPTX_VERSION}" \
+  && "${VIRTUAL_ENV}/bin/python" -c "import defusedxml, lxml.etree, pptx; from PIL import Image; from markitdown import MarkItDown; from pptx import Presentation; Presentation()" \
+  && node -e "require('pptxgenjs'); require('react'); require('react-dom/server'); require('react-icons/fi'); require('sharp')" \
   && command -v soffice >/dev/null \
   && command -v pdftoppm >/dev/null
 
