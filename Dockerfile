@@ -81,8 +81,12 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   react-icons@${REACT_ICONS_VERSION} \
   sharp@${SHARP_VERSION} \
   && corepack enable \
-  && curl -fsSL https://bun.sh/install | bash \
-  && curl -LsSf https://astral.sh/uv/install.sh | sh \
+  && curl -fsSL https://bun.sh/install | env BUN_INSTALL=/usr/local bash \
+  && curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh \
+  && command -v bun >/dev/null \
+  && command -v bunx >/dev/null \
+  && command -v uv >/dev/null \
+  && command -v uvx >/dev/null \
   && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
   && echo Asia/Shanghai > /etc/timezone
 
@@ -93,9 +97,9 @@ ENV PYTHONUNBUFFERED=1 \
   TZ=Asia/Shanghai \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
-  BUN_INSTALL="/root/.bun" \
+  BUN_INSTALL="/usr/local" \
   NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules" \
-  PATH="/opt/venv/bin:/root/.bun/bin:/root/.local/bin:/root/.cargo/bin:$PATH"
+  PATH="/opt/venv/bin:/usr/local/bin:/root/.cargo/bin:$PATH"
 
 # PDF 解析、生成、表单处理、页面渲染和本地 OCR 依赖
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
