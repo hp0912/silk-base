@@ -37,6 +37,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
+          sbom: false
           cache-from: type=gha,scope=silk-base
           cache-to: type=gha,mode=max,scope=silk-base
           tags: |
