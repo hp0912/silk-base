@@ -31,6 +31,9 @@ RUN make && make decoder && make encoder
 FROM debian:stable-slim AS silk-base
 
 ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG TYPST_VERSION=0.15.1
+ARG FANDOL_SHA256=9278f01b417ded5766d98c3937192a1a6a2c73a5e94a3493fdfc932b2a55005a
 ARG NODE_MAJOR=24
 ARG TSX_VERSION=latest
 ARG PDFPLUMBER_VERSION=0.11.9
@@ -58,13 +61,14 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   --mount=type=cache,id=silk-base-runtime-apt-lib-${TARGETPLATFORM},target=/var/lib/apt,sharing=locked \
   --mount=type=cache,id=silk-base-npm-${TARGETPLATFORM},target=/root/.npm \
   rm -f /etc/apt/apt.conf.d/docker-clean && \
+  sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources && \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  ca-certificates curl ffmpeg git ripgrep unzip zip \
+  ca-certificates curl ffmpeg git ripgrep unzip zip xz-utils \
   tzdata \
   chromium \
   fontconfig fonts-noto-cjk fonts-noto-color-emoji fonts-inter fonts-liberation \
-  fonts-crosextra-caladea fonts-crosextra-carlito \
+  fonts-crosextra-caladea fonts-crosextra-carlito ttf-mscorefonts-installer \
   python3 python3-venv python3-pip \
   libgomp1 libgl1 libglib2.0-0t64 \
   pandoc \
@@ -89,6 +93,73 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   && command -v uvx >/dev/null \
   && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
   && echo Asia/Shanghai > /etc/timezone
+
+# Typst 官方固定版本；按目标架构安装静态二进制，不增加 Rust 构建依赖。
+RUN set -eu; \
+  case "${TARGETARCH}" in \
+    amd64) typst_target=x86_64-unknown-linux-musl ;; \
+    arm64) typst_target=aarch64-unknown-linux-musl ;; \
+    *) echo "Unsupported Typst architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  curl -fL --retry 3 --proto '=https' --proto-redir '=https' \
+    "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-${typst_target}.tar.xz" \
+    -o /tmp/typst.tar.xz; \
+  mkdir -p /tmp/typst /usr/local/share/doc/typst; \
+  tar -xJf /tmp/typst.tar.xz -C /tmp/typst --strip-components=1; \
+  install -m 0755 /tmp/typst/typst /usr/local/bin/typst; \
+  install -m 0644 /tmp/typst/LICENSE /tmp/typst/NOTICE /usr/local/share/doc/typst/; \
+  typst --version; \
+  rm -rf /tmp/typst /tmp/typst.tar.xz
+
+# CTAN Fandol 0.3：宋、黑、楷、仿宋风格；保留真实家族名和许可证。
+RUN set -eu; \
+  curl -fL --retry 3 --proto '=https' --proto-redir '=https' \
+    https://mirrors.ctan.org/fonts/fandol.zip -o /tmp/fandol.zip; \
+  echo "${FANDOL_SHA256}  /tmp/fandol.zip" | sha256sum -c -; \
+  unzip -q /tmp/fandol.zip -d /tmp/fandol-fonts; \
+  mkdir -p /usr/local/share/fonts/fandol /usr/local/share/doc/fandol; \
+  install -m 0644 /tmp/fandol-fonts/fandol/*.otf /usr/local/share/fonts/fandol/; \
+  install -m 0644 /tmp/fandol-fonts/fandol/COPYING /tmp/fandol-fonts/fandol/README /usr/local/share/doc/fandol/; \
+  rm -rf /tmp/fandol.zip /tmp/fandol-fonts
+
+# 已授权的原版中文字体：固定来源版本，并逐文件校验 SHA-256。
+COPY fonts/cjk-fonts.tsv /tmp/cjk-fonts.tsv
+RUN set -eu; \
+  mkdir -p /usr/local/share/fonts/windows-cjk /usr/local/share/doc/windows-cjk; \
+  while read -r font_sha font_name font_url; do \
+    curl -fL --retry 3 --connect-timeout 20 --max-time 300 --proto '=https' --proto-redir '=https' \
+      "${font_url}" -o "/tmp/${font_name}"; \
+    echo "${font_sha}  /tmp/${font_name}" | sha256sum -c -; \
+    install -m 0644 "/tmp/${font_name}" /usr/local/share/fonts/windows-cjk/; \
+    rm -f "/tmp/${font_name}"; \
+  done < /tmp/cjk-fonts.tsv; \
+  install -m 0644 /tmp/cjk-fonts.tsv /usr/local/share/doc/windows-cjk/sources.tsv; \
+  rm -f /tmp/cjk-fonts.tsv
+
+# 已授权的苹果风格字体：苹方 SC 用于简体中文，SF Pro 用于英文和数字。
+COPY fonts/apple-fonts.tsv /tmp/apple-fonts.tsv
+RUN set -eu; \
+  mkdir -p /usr/local/share/fonts/apple /usr/local/share/doc/apple-fonts; \
+  while read -r font_sha font_name font_url; do \
+    curl -fL --retry 3 --connect-timeout 20 --max-time 300 --proto '=https' --proto-redir '=https' \
+      "${font_url}" -o "/tmp/${font_name}"; \
+    echo "${font_sha}  /tmp/${font_name}" | sha256sum -c -; \
+    install -m 0644 "/tmp/${font_name}" /usr/local/share/fonts/apple/; \
+    rm -f "/tmp/${font_name}"; \
+  done < /tmp/apple-fonts.tsv; \
+  install -m 0644 /tmp/apple-fonts.tsv /usr/local/share/doc/apple-fonts/sources.tsv; \
+  rm -f /tmp/apple-fonts.tsv
+
+# 额外的机构字体可放在构建上下文 custom-fonts/ 中。
+COPY custom-fonts/ /usr/local/share/fonts/custom/
+RUN set -eu; \
+  fc-cache -f; \
+  fc-list --format '%{family}\n' > /tmp/document-fonts.txt; \
+  for family in 'Arial' 'Times New Roman' 'FandolSong' 'FandolHei' 'FandolKai' 'FandolFang' \
+    'SimSun' 'SimHei' 'FangSong' 'KaiTi' 'Microsoft YaHei' 'Microsoft YaHei UI' '方正小标宋简体' 'PingFang SC' 'SF Pro'; do \
+    grep -Eq "(^|,)${family}(,|$)" /tmp/document-fonts.txt || { echo "Missing font: ${family}" >&2; exit 1; }; \
+  done; \
+  rm -f /tmp/document-fonts.txt
 
 # 基础运行环境变量（减少 Python 缓冲 & 关闭 pip 缓存）
 ENV PYTHONUNBUFFERED=1 \
