@@ -112,10 +112,27 @@ RUN set -eu; \
   rm -rf /tmp/typst /tmp/typst.tar.xz
 
 # CTAN Fandol 0.3：宋、黑、楷、仿宋风格；保留真实家族名和许可证。
+# 使用固定 HTTPS 镜像并在失败时切换，避免自动跳转到证书链异常的镜像。
 RUN set -eu; \
-  curl -fL --retry 3 --proto '=https' --proto-redir '=https' \
-    https://mirrors.ctan.org/fonts/fandol.zip -o /tmp/fandol.zip; \
-  echo "${FANDOL_SHA256}  /tmp/fandol.zip" | sha256sum -c -; \
+  fandol_downloaded=0; \
+  for fandol_url in \
+    https://ftp.fau.de/ctan/fonts/fandol.zip \
+    https://mirrors.tuna.tsinghua.edu.cn/CTAN/fonts/fandol.zip; do \
+    echo "Downloading Fandol from ${fandol_url}"; \
+    if curl -fL --retry 2 --connect-timeout 20 --max-time 300 \
+      --proto '=https' --proto-redir '=https' \
+      "${fandol_url}" -o /tmp/fandol.zip \
+      && echo "${FANDOL_SHA256}  /tmp/fandol.zip" | sha256sum -c -; then \
+      fandol_downloaded=1; \
+      break; \
+    fi; \
+    echo "Fandol download or checksum failed: ${fandol_url}" >&2; \
+    rm -f /tmp/fandol.zip; \
+  done; \
+  if [ "${fandol_downloaded}" -ne 1 ]; then \
+    echo "Unable to download a verified Fandol archive from all configured mirrors." >&2; \
+    exit 1; \
+  fi; \
   unzip -q /tmp/fandol.zip -d /tmp/fandol-fonts; \
   mkdir -p /usr/local/share/fonts/fandol /usr/local/share/doc/fandol; \
   install -m 0644 /tmp/fandol-fonts/fandol/*.otf /usr/local/share/fonts/fandol/; \
