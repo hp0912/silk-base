@@ -30,6 +30,7 @@ RUN make && make decoder && make encoder
 # ────────────────────────
 FROM debian:stable-slim AS silk-base
 
+ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TYPST_VERSION=0.15.1
@@ -222,9 +223,16 @@ RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,
   && test -s /usr/share/poppler/cMap/Adobe-GB1/UniGB-UTF16-H \
   && test -s /usr/share/poppler/cidToUnicode/Adobe-GB1
 
-# PDF 设计使用已有系统 Chromium，所有分页/公式/流程图资源从本地包加载。
-COPY pdf-runtime/design-smoke.cjs /tmp/pdf-design-smoke.cjs
-RUN node /tmp/pdf-design-smoke.cjs && rm -f /tmp/pdf-design-smoke.cjs
+# 所有架构检查本地依赖；原生构建实跑浏览器，QEMU 构建不启动 Chromium。
+# 保留完整自检，供维护者在目标架构原生环境中验证渲染。
+COPY pdf-runtime/design-smoke.cjs /usr/local/lib/pdf-runtime/design-smoke.cjs
+RUN set -eu; \
+  if [ -n "${BUILDPLATFORM}" ] && [ -n "${TARGETPLATFORM}" ] && [ "${BUILDPLATFORM}" != "${TARGETPLATFORM}" ]; then \
+    node /usr/local/lib/pdf-runtime/design-smoke.cjs --dependencies-only; \
+    echo "Cross-platform build ${BUILDPLATFORM} -> ${TARGETPLATFORM}: Chromium rendering NOT verified under QEMU; run the retained self-test on a native ${TARGETPLATFORM} host."; \
+  else \
+    node /usr/local/lib/pdf-runtime/design-smoke.cjs; \
+  fi
 
 # LaTeX 固定编译器：双架构静态发行包、SHA-256 校验，不执行远程安装脚本。
 RUN set -eu; \

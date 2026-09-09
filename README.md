@@ -124,7 +124,7 @@ sh converter.sh input ouput mp3
 
 ## 文档排版依赖
 
-PDF 融合后的设计入口通过固定脚本使用系统 Chromium，并预置 playwright-core 1.63.0、Paged.js 0.4.3、KaTeX 0.18.7、Mermaid 11.17.2；运行时不安装浏览器或加载 CDN。扫描识别继续用 RapidOCR 3.9.1 / ONNX Runtime，并固定其兼容依赖 OmegaConf 2.3.1。表单、页面、元数据与图像提取复用 pypdf，无需 pikepdf。额外显式安装 `poppler-data`，提供字体无法替代的 Adobe CJK 编码映射，避免部分中文 PDF 缺字。构建时实际运行 HTML/公式/流程图分页自检，并检查中文映射文件。
+PDF 融合后的设计入口通过固定脚本使用系统 Chromium，并预置 playwright-core 1.63.0、Paged.js 0.4.3、KaTeX 0.18.7、Mermaid 11.17.2；运行时不安装浏览器或加载 CDN。扫描识别继续用 RapidOCR 3.9.1 / ONNX Runtime，并固定其兼容依赖 OmegaConf 2.3.1。表单、页面、元数据与图像提取复用 pypdf，无需 pikepdf。额外显式安装 `poppler-data`，提供字体无法替代的 Adobe CJK 编码映射，避免部分中文 PDF 缺字。所有架构检查依赖文件、浏览器入口和中文映射；原生构建实际运行 HTML/公式/流程图分页自检。跨架构 QEMU 构建只检查依赖并明确标记浏览器渲染未验证，避免 Chromium GPU/子进程在模拟环境中崩溃。完整自检保留在 `/usr/local/lib/pdf-runtime/design-smoke.cjs`，供维护者在目标架构原生环境验证。PDF 渲染禁用 GPU 硬件加速。
 
 LaTeX 使用 Tectonic 0.17.0 的 amd64/arm64 静态程序，下载逐架构校验 SHA-256。`TECTONIC_CACHE_DIR=/opt/tectonic-cache` 预热 ctex/Fandol、数学、表格、图片和超链接资源，并验证离线编译；特殊 TeX 模板仍可能需要在构建时扩充缓存。任务固定脚本禁止 shell escape，仅使用缓存包，不自动安装或联网补包。
 
