@@ -40,11 +40,21 @@ ARG PDFPLUMBER_VERSION=0.11.9
 ARG PYPDF_VERSION=6.10.0
 ARG REPORTLAB_VERSION=4.4.9
 ARG RAPIDOCR_VERSION=3.9.1
+ARG OMEGACONF_VERSION=2.3.1
+ARG PDF_PLAYWRIGHT_CORE_VERSION=1.63.0
+ARG PAGEDJS_VERSION=0.4.3
+ARG KATEX_VERSION=0.18.7
+ARG MERMAID_VERSION=11.17.2
+ARG TECTONIC_VERSION=0.17.0
+ARG TECTONIC_SHA256_AMD64=8533d07f9ccbd7a65824b9e0459041bca34af1eb33daba48f59215593753a3b7
+ARG TECTONIC_SHA256_ARM64=b10954a95404f3ab2328d2fa59a5ebab8e657f893fab096f98be8db7c0c979b8
 ARG ONNXRUNTIME_VERSION=1.27.0
 ARG OPENCV_PYTHON_VERSION=4.12.0.88
 ARG OPENPYXL_VERSION=3.1.5
 ARG PILLOW_VERSION=12.3.0
 ARG PANDAS_VERSION=3.0.5
+ARG SCIPY_VERSION=1.18.1
+ARG SCIKIT_LEARN_VERSION=1.9.0
 ARG MARKITDOWN_VERSION=0.1.6
 ARG DOCX_VERSION=9.7.1
 ARG PYTHON_DOCX_VERSION=1.2.0
@@ -72,7 +82,7 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   python3 python3-venv python3-pip \
   libgomp1 libgl1 libglib2.0-0t64 \
   pandoc \
-  poppler-utils \
+  poppler-utils poppler-data \
   libreoffice-calc-nogui libreoffice-writer-nogui libreoffice-impress-nogui \
   && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs \
@@ -84,6 +94,11 @@ RUN --mount=type=cache,id=silk-base-runtime-apt-cache-${TARGETPLATFORM},target=/
   react-dom@${REACT_DOM_VERSION} \
   react-icons@${REACT_ICONS_VERSION} \
   sharp@${SHARP_VERSION} \
+  && npm install -g --ignore-scripts --no-audit --no-fund \
+  playwright-core@${PDF_PLAYWRIGHT_CORE_VERSION} \
+  pagedjs@${PAGEDJS_VERSION} \
+  katex@${KATEX_VERSION} \
+  mermaid@${MERMAID_VERSION} \
   && corepack enable \
   && curl -fsSL https://bun.sh/install | env BUN_INSTALL=/usr/local bash \
   && curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh \
@@ -185,6 +200,7 @@ ENV PYTHONUNBUFFERED=1 \
   TZ=Asia/Shanghai \
   CHROME_BIN=/usr/bin/chromium \
   CHROME_PATH=/usr/bin/chromium \
+  TECTONIC_CACHE_DIR=/opt/tectonic-cache \
   BUN_INSTALL="/usr/local" \
   NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules" \
   PATH="/opt/venv/bin:/usr/local/bin:/root/.cargo/bin:$PATH"
@@ -197,20 +213,59 @@ RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,
   "pypdf==${PYPDF_VERSION}" \
   "reportlab==${REPORTLAB_VERSION}" \
   "rapidocr==${RAPIDOCR_VERSION}" \
+  "omegaconf==${OMEGACONF_VERSION}" \
   "onnxruntime==${ONNXRUNTIME_VERSION}" \
   "opencv-python==${OPENCV_PYTHON_VERSION}" \
   && "${VIRTUAL_ENV}/bin/python" -c "import cv2, onnxruntime, pdfplumber, pypdf, reportlab; from rapidocr import RapidOCR; RapidOCR(); print('PDF and OCR dependencies OK')" \
   && command -v pdftoppm >/dev/null \
-  && command -v pdfinfo >/dev/null
+  && command -v pdfinfo >/dev/null \
+  && test -s /usr/share/poppler/cMap/Adobe-GB1/UniGB-UTF16-H \
+  && test -s /usr/share/poppler/cidToUnicode/Adobe-GB1
 
-# Anthropic xlsx skill 的 Python 运行时和公式重算依赖
+# PDF 设计使用已有系统 Chromium，所有分页/公式/流程图资源从本地包加载。
+COPY pdf-runtime/design-smoke.cjs /tmp/pdf-design-smoke.cjs
+RUN node /tmp/pdf-design-smoke.cjs && rm -f /tmp/pdf-design-smoke.cjs
+
+# LaTeX 固定编译器：双架构静态发行包、SHA-256 校验，不执行远程安装脚本。
+RUN set -eu; \
+  case "${TARGETARCH}" in \
+    amd64) tectonic_target=x86_64-unknown-linux-musl; tectonic_sha="${TECTONIC_SHA256_AMD64}" ;; \
+    arm64) tectonic_target=aarch64-unknown-linux-musl; tectonic_sha="${TECTONIC_SHA256_ARM64}" ;; \
+    *) echo "Unsupported Tectonic architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  curl -fL --retry 3 --connect-timeout 20 --max-time 300 --proto '=https' --proto-redir '=https' \
+    "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${tectonic_target}.tar.gz" \
+    -o /tmp/tectonic.tar.gz; \
+  echo "${tectonic_sha}  /tmp/tectonic.tar.gz" | sha256sum -c -; \
+  mkdir -p /tmp/tectonic; \
+  tar -xzf /tmp/tectonic.tar.gz -C /tmp/tectonic; \
+  install -m 0755 /tmp/tectonic/tectonic /usr/local/bin/tectonic; \
+  tectonic --version; \
+  rm -rf /tmp/tectonic /tmp/tectonic.tar.gz
+
+# 构建时预热常用中文/数学/图表/链接包；任务脚本只允许 --only-cached。
+COPY pdf-runtime/latex-smoke.tex /tmp/pdf-latex-smoke.tex
+RUN set -eu; \
+  mkdir -p "${TECTONIC_CACHE_DIR}" /tmp/pdf-latex-check; \
+  tectonic --untrusted --outdir /tmp/pdf-latex-check /tmp/pdf-latex-smoke.tex; \
+  tectonic --untrusted --only-cached --outdir /tmp/pdf-latex-check /tmp/pdf-latex-smoke.tex; \
+  "${VIRTUAL_ENV}/bin/python" -c "from pypdf import PdfReader; assert len(PdfReader('/tmp/pdf-latex-check/pdf-latex-smoke.pdf').pages) == 1; print('LaTeX cached resources OK')"; \
+  pdftotext /tmp/pdf-latex-check/pdf-latex-smoke.pdf /tmp/pdf-latex-check/text.txt; \
+  "${VIRTUAL_ENV}/bin/python" -c "from pathlib import Path; text = ''.join(Path('/tmp/pdf-latex-check/text.txt').read_text().split()); assert '中文排版验证' in text and '1234567890' in text; print('Chinese PDF mappings OK')"; \
+  chmod -R a+rX "${TECTONIC_CACHE_DIR}"; \
+  rm -rf /tmp/pdf-latex-check /tmp/pdf-latex-smoke.tex
+
+# xlsx 读写/重算沿用原工具链；SciPy 和 scikit-learn 补充模型与优化求解。
 RUN --mount=type=cache,id=silk-base-uv-${TARGETPLATFORM},target=/root/.cache/uv,sharing=locked \
-  uv pip install --python "${VIRTUAL_ENV}/bin/python" \
+  uv pip install --python "${VIRTUAL_ENV}/bin/python" --only-binary scipy,scikit-learn \
   "openpyxl==${OPENPYXL_VERSION}" \
   "Pillow==${PILLOW_VERSION}" \
   "pandas==${PANDAS_VERSION}" \
+  "scipy==${SCIPY_VERSION}" \
+  "scikit-learn==${SCIKIT_LEARN_VERSION}" \
   "markitdown[xlsx]==${MARKITDOWN_VERSION}" \
   && "${VIRTUAL_ENV}/bin/python" -c "import openpyxl, pandas; from PIL import Image; from markitdown import MarkItDown" \
+  && "${VIRTUAL_ENV}/bin/python" -c "from scipy.optimize import milp; from sklearn.linear_model import LinearRegression; assert milp([1.0], integrality=[1]).success; model = LinearRegression().fit([[0.0], [1.0]], [0.0, 2.0]); assert abs(model.predict([[2.0]])[0] - 4.0) < 1e-8; print('xlsx modeling dependencies OK')" \
   && command -v markitdown >/dev/null \
   && command -v soffice >/dev/null
 

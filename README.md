@@ -124,6 +124,12 @@ sh converter.sh input ouput mp3
 
 ## 文档排版依赖
 
+PDF 融合后的设计入口通过固定脚本使用系统 Chromium，并预置 playwright-core 1.63.0、Paged.js 0.4.3、KaTeX 0.18.7、Mermaid 11.17.2；运行时不安装浏览器或加载 CDN。扫描识别继续用 RapidOCR 3.9.1 / ONNX Runtime，并固定其兼容依赖 OmegaConf 2.3.1。表单、页面、元数据与图像提取复用 pypdf，无需 pikepdf。额外显式安装 `poppler-data`，提供字体无法替代的 Adobe CJK 编码映射，避免部分中文 PDF 缺字。构建时实际运行 HTML/公式/流程图分页自检，并检查中文映射文件。
+
+LaTeX 使用 Tectonic 0.17.0 的 amd64/arm64 静态程序，下载逐架构校验 SHA-256。`TECTONIC_CACHE_DIR=/opt/tectonic-cache` 预热 ctex/Fandol、数学、表格、图片和超链接资源，并验证离线编译；特殊 TeX 模板仍可能需要在构建时扩充缓存。任务固定脚本禁止 shell escape，仅使用缓存包，不自动安装或联网补包。
+
+xlsx 的读写、图表、重算与渲染继续使用 openpyxl、pandas、LibreOffice 和 Poppler。融合 excel-skill 后，仅为回归/分类/聚类及优化求解新增固定版本 SciPy 1.18.1、scikit-learn 1.9.0（`SCIPY_VERSION`、`SCIKIT_LEARN_VERSION`）；优先安装两者的二进制 wheel，构建时实际执行最小模型与整数求解自检。无需额外安装翻译服务、Excel COM、PuLP/CBC 或另一套绘图库。新能力需重新构建、部署镜像后生效。
+
 基础镜像包含 LibreOffice、Pandoc、Poppler、Python 文档/PDF/OCR 库和 Node docx。Typst 使用官方 0.15.1 发行版， 按 linux/amd64 或 linux/arm64 下载静态程序；版本可通过 `TYPST_VERSION` 构建参数调整。
 
 字体包括已有 Noto/Inter/Liberation、Debian `ttf-mscorefonts-installer` 提供的 Arial/Times New Roman，以及 CTAN Fandol 0.3 的宋、黑、楷、仿宋风格。Fandol 下载会校验 SHA-256，并保留许可证。构建时检查字体库存，下载失败或必需字体缺失会使构建失败。
